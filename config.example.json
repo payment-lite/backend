@@ -1,0 +1,17 @@
+{
+  "APP": {
+    "PORT": 8000,
+    "HOST": "127.0.0.1",
+    "NAME": "payment-gateway-lite",
+    "VERSION": "1.0.0",
+    "ENV": "local",
+    "FRONTEND_URL": "http://localhost:3000"
+  },
+  "DB": {
+      "DSN": "username:password@tcp(127.0.0.1:3306)/payment_gateway_lite?charset=utf8mb4&parseTime=True&loc=Local"
+  },
+  "JWT": {
+    "ISSUER": "payment-gateway-lite",
+    "SECRET": "i4qqsdBIlXB0oV76"
+  }
+}
