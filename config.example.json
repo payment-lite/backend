@@ -12,6 +12,6 @@
   },
   "JWT": {
     "ISSUER": "payment-gateway-lite",
-    "SECRET": "i4qqsdBIlXB0oV76"
+    "SECRET": "YOUR_VERY_SECRET_KEY"
   }
 }
