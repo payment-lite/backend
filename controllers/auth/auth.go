@@ -193,6 +193,15 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 				return helpers.InternalServerError(c, result.Error)
 			}
 
+			//create team
+			result = database.DBConn.Model(&models.Team{}).Create(&models.Team{
+				Name:    user.Name,
+				OwnerID: &user.ID,
+			})
+			if result.Error != nil {
+				return helpers.InternalServerError(c, result.Error)
+			}
+
 			// create token
 			token, err := helpers.CreateTokenJWT(user.ID)
 			if err != nil {
