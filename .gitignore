@@ -3,3 +3,6 @@ config.json
 
 # air package
 tmp
+
+# query development
+QUERYDEVELOPMENT.sql
