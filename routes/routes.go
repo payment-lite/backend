@@ -1,8 +1,9 @@
 package routes
 
 import (
+	authController "payment-gateway-lite/controllers/auth"
+
 	"github.com/gofiber/fiber/v2"
-	"payment-gateway-lite/controllers/auth"
 )
 
 func SetupRoutes(app *fiber.App) {

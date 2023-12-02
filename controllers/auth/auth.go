@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/go-sql-driver/mysql"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -52,51 +51,36 @@ func Signup(c *fiber.Ctx) error {
 
 	// create user & return error jika user sudah ada
 	var user models.User
-	//result := database.DBConn.Model(&models.User{}).Create(&models.User{
-	//	Name:     reqData.Name,
-	//	Email:    reqData.Email,
-	//	Password: string(hashedPassword),
-	//}).First(&user)
+	err = database.DBConn.Where("email = ?", reqData.Email).First(&user).Error
+	if err == nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(&helpers.ErrorResponse{
+			Success: false,
+			Message: "Email already exists",
+			Errors:  nil,
+		})
+	}
 
-	result := database.DBConn.Transaction(func(tx *gorm.DB) error {
-		//	create user
-		if err := tx.Model(&models.User{}).Create(&models.User{
-			Name:     reqData.Name,
-			Email:    reqData.Email,
-			Password: string(hashedPassword),
-		}).First(&user).Error; err != nil {
-			return err
-		}
-
-		//	create team
-		team := &models.Team{
-			Name:    reqData.Name,
-			OwnerID: &user.ID,
-		}
-		if err := tx.Model(&models.Team{}).Create(&team).Error; err != nil {
-			return err
-		}
-
-		// Set User's TeamID
-		user.TeamID = &team.ID
-		if err := tx.Save(&user).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if result != nil {
-		fmt.Println(result.(*mysql.MySQLError))
-		if result.(*mysql.MySQLError).Number == 1062 {
-			return c.Status(fiber.StatusBadRequest).JSON(&helpers.ErrorResponse{
-				Success: false,
-				Message: "Email already exists",
-				Errors:  nil,
-			})
-		}
+	// create user
+	user.Email = reqData.Email
+	user.Name = reqData.Name
+	user.Password = string(hashedPassword)
+	err = database.DBConn.Create(&user).Error
+	if err != nil {
 		return helpers.InternalServerError(c, err)
 	}
+	// create team
+	team := models.Team{
+		OwnerID: &user.ID,
+		Name:    user.Name,
+	}
+	err = database.DBConn.Create(&team).Error
+
+	// set user team
+	if err := database.DBConn.Model(&user).Update("team_id", team.OwnerID).Error; err != nil {
+		return helpers.InternalServerError(c, err)
+	}
+
 	// create token
 	token, err := helpers.CreateTokenJWT(user.ID)
 	if err != nil {
@@ -153,7 +137,6 @@ func Signin(c *fiber.Ctx) error {
 }
 
 // oauth
-// besok terusin gimana cara nextauth consume token yg kita berikan
 func GoogleOauthLogin(c *fiber.Ctx) error {
 	var reqData GoogleOauthRequest
 
@@ -178,36 +161,41 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 		return helpers.InternalServerError(c, err)
 	}
 
+	// create user jika belum ada
 	var user models.User
-
-	// find user by email
-	result := database.DBConn.Where("email = ?", reqData.Email).First(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			var user models.User
-			user.Name = reqData.Name
-			user.Email = reqData.Email
-			user.Password = string(hashedPassword)
-			result := database.DBConn.Model(&models.User{}).Create(&user)
-			if result.Error != nil {
-				return helpers.InternalServerError(c, result.Error)
+	// cari user
+	err = database.DBConn.Model(&models.User{}).First(&user, "email = ?", reqData.Email).Error
+	// jika ga di temukan buat baru
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			var team models.Team
+			user = models.User{
+				Name:     reqData.Name,
+				Email:    reqData.Email,
+				Password: string(hashedPassword),
+			}
+			if err := database.DBConn.Model(&models.User{}).Create(&user).Error; err != nil {
+				return helpers.InternalServerError(c, err)
 			}
 
-			//create team
-			result = database.DBConn.Model(&models.Team{}).Create(&models.Team{
-				Name:    user.Name,
+			// create team
+			team = models.Team{
+				Name:    reqData.Name,
 				OwnerID: &user.ID,
-			})
-			if result.Error != nil {
-				return helpers.InternalServerError(c, result.Error)
+			}
+			if err := database.DBConn.Model(&models.Team{}).Create(&team).Error; err != nil {
+				return helpers.InternalServerError(c, err)
 			}
 
-			// create token
+			// Set User's TeamID
+			if err := database.DBConn.Model(user).Update("team_id", team.OwnerID).Error; err != nil {
+				return helpers.InternalServerError(c, err)
+			}
+
 			token, err := helpers.CreateTokenJWT(user.ID)
 			if err != nil {
 				return helpers.InternalServerError(c, err)
 			}
-
 			return c.JSON(helpers.SuccessResponse{
 				Success: true,
 				Message: "Signin success",
@@ -217,7 +205,11 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 				},
 			})
 		}
-		return helpers.InternalServerError(c, result.Error)
+		return c.Status(fiber.StatusUnauthorized).JSON(&helpers.ErrorResponse{
+			Success: false,
+			Message: helpers.MessageUnauthorized,
+			Errors:  err.Error(),
+		})
 	}
 
 	// create token
