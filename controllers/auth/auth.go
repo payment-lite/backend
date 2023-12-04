@@ -3,13 +3,14 @@ package authController
 import (
 	"errors"
 	"fmt"
+	"payment-gateway-lite/database"
+	"payment-gateway-lite/database/models"
+	"payment-gateway-lite/utils/helpers"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"payment-gateway-lite/database"
-	"payment-gateway-lite/database/models"
-	"payment-gateway-lite/utils/helpers"
 )
 
 type SignupRequest struct {
@@ -29,6 +30,7 @@ type GoogleOauthRequest struct {
 }
 
 var validate = validator.New()
+var emailQuery ="email = ?"
 
 func Signup(c *fiber.Ctx) error {
 	var reqData SignupRequest
@@ -51,10 +53,10 @@ func Signup(c *fiber.Ctx) error {
 
 	// create user & return error jika user sudah ada
 	var user models.User
-	err = database.DBConn.Where("email = ?", reqData.Email).First(&user).Error
+	err = database.DBConn.Where(emailQuery, reqData.Email).First(&user).Error
 	if err == nil {
 		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(&helpers.ErrorResponse{
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(&helpers.ErrorResponse{
 			Success: false,
 			Message: "Email already exists",
 			Errors:  nil,
@@ -75,7 +77,9 @@ func Signup(c *fiber.Ctx) error {
 		Name:    user.Name,
 	}
 	err = database.DBConn.Create(&team).Error
-
+	if err != nil {
+		return helpers.InternalServerError(c, err)
+	}
 	// set user team
 	if err := database.DBConn.Model(&user).Update("team_id", team.OwnerID).Error; err != nil {
 		return helpers.InternalServerError(c, err)
@@ -111,12 +115,13 @@ func Signin(c *fiber.Ctx) error {
 
 	// Find user by email & return error jika user tidak ditemukan
 	var user models.User
-	result := database.DBConn.Model(&models.User{}).First(&user, "email = ?", reqData.Email)
+	result := database.DBConn.Model(&models.User{}).First(&user, emailQuery, reqData.Email)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return c.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
-				"status":  "failed",
-				"message": helpers.MessageUnauthorized,
+			return c.Status(fiber.StatusUnauthorized).JSON(&helpers.ErrorResponse{
+				Success: false,
+				Message: helpers.MessageUnauthorized,
+				Errors:  nil,
 			})
 		}
 	}
@@ -128,7 +133,7 @@ func Signin(c *fiber.Ctx) error {
 	}
 	return c.JSON(helpers.SuccessResponse{
 		Success: true,
-		Message: "Signin success",
+		Message: helpers.MessageSuccess,
 		Data: fiber.Map{
 			"user":  user,
 			"token": token,
@@ -164,7 +169,7 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 	// create user jika belum ada
 	var user models.User
 	// cari user
-	err = database.DBConn.Model(&models.User{}).First(&user, "email = ?", reqData.Email).Error
+	err = database.DBConn.Model(&models.User{}).First(&user, emailQuery, reqData.Email).Error
 	// jika ga di temukan buat baru
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -198,7 +203,7 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 			}
 			return c.JSON(helpers.SuccessResponse{
 				Success: true,
-				Message: "Signin success",
+				Message: helpers.MessageSuccess,
 				Data: fiber.Map{
 					"user":  user,
 					"token": token,
@@ -221,11 +226,10 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 	// if user already exists just return user
 	return c.JSON(helpers.SuccessResponse{
 		Success: true,
-		Message: "Signin success",
+		Message: helpers.MessageSuccess,
 		Data: fiber.Map{
 			"user":  user,
 			"token": token,
 		},
 	})
-
 }

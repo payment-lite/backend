@@ -35,7 +35,7 @@ func ErrorValidation(c *fiber.Ctx, err error) error {
 
 			errors = append(errors, errorResponse)
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(&ErrorResponse{
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(&ErrorResponse{
 			Success: false,
 			Message: MessageBadRequest,
 			Errors:  errors,
