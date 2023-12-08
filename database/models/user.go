@@ -17,7 +17,7 @@ type User struct {
 	CreatedAt       time.Time       `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt       time.Time       `gorm:"column:updated_at;default:CURRENT_TIMESTAMP;onUpdate:CURRENT_TIMESTAMP" json:"updated_at"`
 	DeletedAt       *gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
-	Team            Team            `gorm:"foreignKey:OwnerID;omitempty" json:"Team"`
+	Team            Team            `gorm:"foreignKey:OwnerID;omitempty" json:"team"`
 }
 
 //// Validate menggunakan validator untuk memvalidasi struktur User
