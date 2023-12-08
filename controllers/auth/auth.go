@@ -81,7 +81,7 @@ func Signup(c *fiber.Ctx) error {
 		return helpers.InternalServerError(c, err)
 	}
 	// set user team
-	if err := database.DBConn.Model(&user).Update("team_id", team.OwnerID).Error; err != nil {
+	if err := database.DBConn.Model(&user).Update("team_id", team.OwnerID).Preload("Team").First(&user).Error; err != nil {
 		return helpers.InternalServerError(c, err)
 	}
 
@@ -115,7 +115,7 @@ func Signin(c *fiber.Ctx) error {
 
 	// Find user by email & return error jika user tidak ditemukan
 	var user models.User
-	result := database.DBConn.Model(&models.User{}).First(&user, emailQuery, reqData.Email)
+	result := database.DBConn.Model(&models.User{}).Preload("Team").First(&user, emailQuery, reqData.Email)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusUnauthorized).JSON(&helpers.ErrorResponse{
@@ -169,7 +169,7 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 	// create user jika belum ada
 	var user models.User
 	// cari user
-	err = database.DBConn.Model(&models.User{}).First(&user, emailQuery, reqData.Email).Error
+	err = database.DBConn.Model(&models.User{}).Preload("Team").First(&user, emailQuery, reqData.Email).Error
 	// jika ga di temukan buat baru
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -193,7 +193,7 @@ func GoogleOauthLogin(c *fiber.Ctx) error {
 			}
 
 			// Set User's TeamID
-			if err := database.DBConn.Model(user).Update("team_id", team.OwnerID).Error; err != nil {
+			if err := database.DBConn.Model(user).Update("team_id", team.OwnerID).Preload("Team").First(&user).Error; err != nil {
 				return helpers.InternalServerError(c, err)
 			}
 
