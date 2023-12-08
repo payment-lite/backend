@@ -1,1 +1,1 @@
-drop table if exists
+drop table if exists teams;

@@ -1,8 +1,9 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type User struct {
@@ -16,7 +17,7 @@ type User struct {
 	CreatedAt       time.Time       `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt       time.Time       `gorm:"column:updated_at;default:CURRENT_TIMESTAMP;onUpdate:CURRENT_TIMESTAMP" json:"updated_at"`
 	DeletedAt       *gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
-	Team            Team            `gorm:"foreignKey:OwnerID" json:"team,omitempty"`
+	Team            Team            `gorm:"foreignKey:OwnerID;omitempty" json:"Team"`
 }
 
 //// Validate menggunakan validator untuk memvalidasi struktur User
